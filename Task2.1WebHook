@@ -1,0 +1,79 @@
+#include <SPI.h>
+#include <WiFiNINA.h>
+#include <ThingSpeak.h>
+#include <DHT.h>
+
+// WiFi credentials
+const char* ssid = "DODO-8BEF";
+const char* password = "FLCCVDF5MB";
+
+// ThingSpeak Channel settings
+unsigned long channelID = 2523055;
+const char* writeAPIKey = "OW1261CVJQ67K7HA";
+
+// DHT Sensor settings
+#define DHTPIN 2           // Pin which the DHT22 is connected to
+#define DHTTYPE DHT22      
+DHT dht(DHTPIN, DHTTYPE); // Initialize DHT sensor
+
+// Light Sensor settings
+#define LIGHT_SENSOR_PIN A0 // Analog pin connected to the light sensor
+
+WiFiClient client;
+
+void setup() {
+  Serial.begin(9600); // serial communication at 9600 baud
+  while (!Serial) {
+    ; 
+  }
+
+  WiFi.begin(ssid, password); // Connect to WiFi network
+  while (WiFi.status() != WL_CONNECTED) { 
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected");
+
+  ThingSpeak.begin(client);  // Initialize ThingSpeak
+  dht.begin();               // Start the DHT sensor
+}
+
+void loop() {
+  delay(2000); 
+
+  // Reading temperature and humidity
+  float humidity = dht.readHumidity();          // Read humidity (percent)
+  float temperature = dht.readTemperature();    // Read temperature as Celsius
+  float heatIndex = dht.computeHeatIndex(temperature, humidity, false); // Calculate heat index
+  int lightIntensity = analogRead(LIGHT_SENSOR_PIN); // Read light intensity
+
+  // Check if any reads failed
+  if (isnan(humidity) || isnan(temperature)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+
+  // Output readings to serial monitor
+  Serial.print("Humidity: ");
+  Serial.print(humidity);
+  Serial.print("%\t");
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.print("°C ");
+  Serial.print("Heat Index: ");
+  Serial.print(heatIndex);
+  Serial.print("°C ");
+  Serial.print("Light Intensity: ");
+  Serial.println(lightIntensity);
+
+  // Update ThingSpeak fields
+  ThingSpeak.setField(1, temperature);
+  ThingSpeak.setField(2, humidity);
+  ThingSpeak.setField(3, lightIntensity);
+  ThingSpeak.setField(4, heatIndex);
+
+  ThingSpeak.writeFields(channelID, writeAPIKey);
+
+  delay(20000); // Update every 20 seconds
+}
